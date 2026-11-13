@@ -1965,7 +1965,7 @@
             submitBtn.disabled = false;
             btnText.innerText = "লগইন করুন";
             alertBox.className = "p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 block";
-            alertBox.innerText = "সার্ভারের সাথে সংযোগ করা যায়নি, ইন্টারনেট চেক করে আবার চেষ্টা করুন।";
+            alertBox.innerText = "সার্ভারের সাথে সংযোগ করা যায়নি: " + ((err && err.message) ? err.message : "অজানা ত্রুটি");
           })
           .authenticateUser(username, password);
       } else {
