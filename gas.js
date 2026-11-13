@@ -6,9 +6,7 @@ const ALLOWED = new Set([
   'deleteUser', 'saveCompanyInfo', 'uploadFile'
 ]);
 
-export const config = { api: { bodyParser: { sizeLimit: '4mb' } }, maxDuration: 30 };
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
   const { fn, args, auth } = req.body || {};
@@ -32,4 +30,4 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(502).json({ ok: false, error: 'Cannot reach Apps Script: ' + e.message });
   }
-}
+};
