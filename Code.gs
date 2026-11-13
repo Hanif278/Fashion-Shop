@@ -1762,7 +1762,7 @@ function searchDueCustomersInSheet(searchQuery, searchType) {
 // ============================================================================
 // VERCEL API LAYER (added) — safe real-time sync, role control, no auto-delete
 // ============================================================================
-// Setup: Project Settings > Script properties > add  API_SECRET = <long random text>
+// Secret is built in below (no Script properties needed).
 // Deploy: Deploy > New deployment > Web app > Execute as: Me, Who has access: Anyone
 // Put the deployment URL in Vercel env GAS_URL and the same secret in GAS_SECRET.
 
@@ -1813,7 +1813,7 @@ function lookupUser_(auth) {
 function doPost(e) {
   try {
     var req = JSON.parse(e.postData.contents);
-    var secret = PropertiesService.getScriptProperties().getProperty('API_SECRET');
+    var secret = 'E-o8ieNwKFusT9USq7oweKi2A6Gyb9bAf_hoQObj'; // must be identical to FALLBACK_SECRET in api/gas.js
     if (!secret || req.secret !== secret) return json_({ ok: false, error: 'Unauthorized' });
     var spec = API_FN[req.fn];
     if (!spec) return json_({ ok: false, error: 'Unknown function' });
