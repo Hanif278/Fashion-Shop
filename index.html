@@ -3273,6 +3273,7 @@
         subtotal,
         netTotal,
         due,
+        soldBy: (typeof currentUser !== 'undefined' && currentUser && currentUser.username) || "",
         items: [...cartItems]
       };
       shopData.sales.push(newSale);
@@ -5694,6 +5695,19 @@
           b.classList.toggle('hidden', (b.getAttribute('onclick') || '').indexOf('product_entry') === -1);
         });
       }
+      var dBtn = document.getElementById('nav-daily-report');
+      if (r === 'cashier') {
+        if (!dBtn) {
+          var ref = side.querySelector('[onclick*="sale_pos"]');
+          if (ref) {
+            var nb = ref.cloneNode(false);
+            nb.id = 'nav-daily-report';
+            nb.setAttribute('onclick', 'openDailyReport()');
+            nb.innerHTML = '<span class="text-sm">📊</span><span class="font-semibold text-[13px]">আমার ডেইলি রিপোর্ট</span>';
+            ref.parentNode.insertBefore(nb, ref.nextSibling);
+          }
+        } else { dBtn.classList.remove('hidden'); }
+      } else if (dBtn) { dBtn.remove(); }
       var profit = document.getElementById('card-total-profit');
       if (profit) profit.classList.toggle('hidden', !(r === 'admin' || r === 'manager'));
 
@@ -5817,6 +5831,86 @@
     window.clearLogo = function () { window.__logoData = ''; var i = document.getElementById('admin-company-logo'); if (i) i.value = ''; window.applyLogo(); };
     setTimeout(window.applyLogo, 800);
     setInterval(function () { if (window.__logoData === undefined) window.applyLogo(); }, 4000);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function money(n) { return '৳ ' + Number(n || 0).toLocaleString('en-IN'); }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    function ensureModal() {
+      var m = document.getElementById('daily-report-modal');
+      if (m) return m;
+      m = document.createElement('div');
+      m.id = 'daily-report-modal';
+      m.className = 'hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3';
+      m.innerHTML =
+        '<div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">' +
+        '<div class="flex items-center justify-between px-4 py-3 border-b">' +
+        '<h3 class="font-extrabold text-slate-800 text-sm">📊 আমার ডেইলি রিপোর্ট</h3>' +
+        '<button onclick="closeDailyReport()" class="px-2 py-1 text-xs border rounded hover:bg-slate-50">বন্ধ করুন</button></div>' +
+        '<div class="px-4 py-3 border-b flex flex-wrap items-end gap-2 text-xs">' +
+        '<div><label class="block font-semibold text-slate-700 mb-1">তারিখ</label><input type="date" id="dr-date" onchange="renderDailyReport()" class="p-2 border rounded-lg"></div>' +
+        '<button onclick="renderDailyReport()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg">খুঁজুন</button>' +
+        '<button onclick="document.getElementById(\'dr-date\').value=window.__drToday();renderDailyReport()" class="px-3 py-2 border rounded-lg hover:bg-slate-50">আজ</button>' +
+        '<button onclick="printDailyReport()" class="px-3 py-2 border rounded-lg hover:bg-slate-50 ml-auto">প্রিন্ট</button></div>' +
+        '<div id="dr-body" class="p-4 overflow-y-auto text-xs"></div></div>';
+      document.body.appendChild(m);
+      return m;
+    }
+    window.__drToday = function () { return ymd(new Date()); };
+    window.openDailyReport = function () {
+      var m = ensureModal();
+      var d = document.getElementById('dr-date');
+      if (!d.value) d.value = window.__drToday();
+      m.classList.remove('hidden');
+      window.renderDailyReport();
+    };
+    window.closeDailyReport = function () { var m = document.getElementById('daily-report-modal'); if (m) m.classList.add('hidden'); };
+
+    function mySales(day) {
+      var me = String((typeof currentUser !== 'undefined' && currentUser && currentUser.username) || '').toLowerCase();
+      return (shopData.sales || []).filter(function (s) {
+        return String(s.soldBy || '').toLowerCase() === me && parseDateToYMD(s.date) === day;
+      });
+    }
+    window.renderDailyReport = function () {
+      var day = document.getElementById('dr-date').value || window.__drToday();
+      var list = mySales(day);
+      var total = 0, paid = 0, due = 0;
+      list.forEach(function (s) {
+        var net = Number(s.netTotal !== undefined ? s.netTotal : (Number(s.subtotal || s.salePrice || 0) - Number(s.discount || 0)));
+        var p = Number(s.payment || 0);
+        total += net; paid += p; due += Math.max(0, net - p);
+      });
+      var rows = list.map(function (s) {
+        var net = Number(s.netTotal !== undefined ? s.netTotal : (Number(s.subtotal || s.salePrice || 0) - Number(s.discount || 0)));
+        var t = (String(s.date).match(/\d{1,2}:\d{2}/) || [''])[0];
+        return '<tr class="border-b"><td class="p-1.5 font-mono">' + esc(s.invoiceNo) + '</td><td class="p-1.5">' + esc(t) + '</td><td class="p-1.5">' + esc(s.customerName) +
+          '</td><td class="p-1.5 text-right">' + money(net) + '</td><td class="p-1.5 text-right">' + money(s.payment) + '</td></tr>';
+      }).join('');
+      document.getElementById('dr-body').innerHTML =
+        '<div id="dr-print">' +
+        '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">' +
+        '<div class="p-2 rounded-lg bg-blue-50 border"><div class="text-[10px] text-slate-500">মোট বিক্রি</div><div class="font-black text-sm">' + money(total) + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-emerald-50 border"><div class="text-[10px] text-slate-500">জমা / নগদ প্রাপ্ত</div><div class="font-black text-sm">' + money(paid) + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-rose-50 border"><div class="text-[10px] text-slate-500">বাকি</div><div class="font-black text-sm">' + money(due) + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-slate-50 border"><div class="text-[10px] text-slate-500">ইনভয়েস সংখ্যা</div><div class="font-black text-sm">' + list.length + '</div></div></div>' +
+        '<p class="text-[11px] text-slate-500 mb-2">তারিখ: ' + esc(day) + ' | বিক্রয়কর্মী: ' + esc(currentUser.name || currentUser.username) + '</p>' +
+        (list.length ? '<table class="w-full text-left"><thead><tr class="bg-slate-100"><th class="p-1.5">ইনভয়েস</th><th class="p-1.5">সময়</th><th class="p-1.5">কাস্টমার</th><th class="p-1.5 text-right">মোট</th><th class="p-1.5 text-right">জমা</th></tr></thead><tbody>' + rows + '</tbody></table>'
+          : '<p class="text-center text-slate-500 py-6">এই তারিখে আপনার কোনো বিক্রি পাওয়া যায়নি।</p>') + '</div>';
+    };
+    window.printDailyReport = function () {
+      var el = document.getElementById('dr-print');
+      if (!el) return;
+      var w = window.open('', '_blank', 'width=800,height=700');
+      if (!w) { alert('পপ-আপ অনুমতি দিন।'); return; }
+      w.document.write('<html><head><meta charset="utf-8"><title>ডেইলি রিপোর্ট</title><style>body{font-family:sans-serif;font-size:12px;padding:16px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ddd;padding:4px;text-align:left}.grid{display:flex;gap:8px;margin-bottom:8px}.grid>div{border:1px solid #ccc;padding:6px;flex:1}</style></head><body><h3>' +
+        esc(typeof companyInfo !== 'undefined' ? companyInfo.name : '') + ' - ডেইলি রিপোর্ট</h3>' + el.innerHTML + '</body></html>');
+      w.document.close(); w.focus(); setTimeout(function () { w.print(); }, 300);
+    };
   })();
   </script>
 </body>
